@@ -113,7 +113,10 @@ In `~/.hammerspoon/init.lua`:
 
 ```lua
 local function pomo(cmd)
-  return function() hs.alert.show(hs.execute("/opt/homebrew/bin/calmpomo " .. cmd)) end
+  return function()
+    local out = hs.execute("/opt/homebrew/bin/calmpomo " .. cmd)
+    hs.alert.show((out:gsub("%s+$", "")))
+  end
 end
 hs.hotkey.bind({"ctrl", "cmd"}, "k", pomo("toggle"))
 hs.hotkey.bind({"ctrl", "cmd"}, ";", pomo("reset"))
@@ -144,7 +147,7 @@ ctrl + cmd - 0x27 : /opt/homebrew/bin/calmpomo skip
 
 Make an action that runs a shell script, put `/opt/homebrew/bin/calmpomo toggle` in it, and give it a hotkey. Repeat for `reset` and `skip`.
 
-- **Shortcuts**: add a **Run Shell Script** action, then use **Add Keyboard Shortcut** in the shortcut's details.
+- **Shortcuts**: turn on **Settings → Advanced → Allow Running Scripts**, add a **Run Shell Script** action, then use **Add Keyboard Shortcut** in the shortcut's details.
 - **Alfred** (Powerpack): a workflow with a **Hotkey** trigger connected to a **Run Script** action.
 - **Keyboard Maestro**: a macro with a **Hot Key** trigger and an **Execute Shell Script** action.
 - **BetterTouchTool**: a keyboard shortcut whose action is **Execute Terminal Command**.

@@ -11,7 +11,7 @@ UID_NUM="$(id -u)"
 
 die() { echo "install.sh: $1" >&2; exit 2; }
 say() { printf '\033[1m==>\033[0m %s\n' "$1"; }
-duration() { [[ $2 =~ ^[0-9]+([.][0-9]+)?$ ]] && [[ ! $2 =~ ^0+([.]0*)?$ ]] || die "$1 needs a positive number of minutes"; }
+duration() { [[ $2 =~ ^(0|[1-9][0-9]*)([.][0-9]+)?$ ]] && [[ ! $2 =~ ^0+([.]0*)?$ ]] || die "$1 needs a positive number of minutes"; }
 
 WORK="" BREAK="" LONG="" CYCLES=""
 while [ $# -gt 0 ]; do
@@ -36,6 +36,8 @@ command -v brew >/dev/null || die "Homebrew is required: https://brew.sh"
 # shellcheck disable=SC1003
 case $ROOT in *'"'*|*'\'*) die "move calmpomo to a folder whose path has no quotes or backslashes" ;; esac
 BREW_PREFIX="$(brew --prefix)"
+SOCK="$STATE_DIR/run/tomat.sock"
+[ ${#SOCK} -lt 104 ] || die "your home folder path is too long for the timer's socket ($SOCK, macOS allows 103 characters)"
 
 if ! brew list --formula tomat >/dev/null 2>&1; then
   say "Installing tomat"

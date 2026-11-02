@@ -51,7 +51,7 @@ run() { tomat "$@" >/dev/null 2>&1; }
 minutes() {
   local m=${1// /}
   m=${m%m}
-  [[ $m =~ ^[0-9]+([.][0-9]+)?$ ]] && [[ ! $m =~ ^0+([.]0*)?$ ]] || fail "Minutes must be a positive number"
+  [[ $m =~ ^(0|[1-9][0-9]*)([.][0-9]+)?$ ]] && [[ ! $m =~ ^0+([.]0*)?$ ]] || fail "Minutes must be a positive number"
   echo "$m"
 }
 
@@ -114,7 +114,7 @@ status_line() {
     break) echo "Break · $(remaining) left$muted" ;;
     long-break) echo "Long break · $(remaining) left$muted" ;;
     break-paused|long-break-paused) echo "Break paused · $(remaining) left$muted" ;;
-    *) echo "Not running" ;;
+    *) echo "Not running"; exit 1 ;;
   esac
 }
 
