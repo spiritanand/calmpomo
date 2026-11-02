@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+ROOT="$(cd "$(dirname "$0")" && pwd)"
 LABEL=io.github.spiritanand.calmpomo
 AGENTS="$HOME/Library/LaunchAgents"
 CONF_DIR="$HOME/.config/calmpomo"
@@ -21,7 +22,7 @@ if [ -n "$PLUGINS" ]; then
 fi
 rm -f "$STATE_DIR"/run/tomat.*
 for p in /opt/homebrew /usr/local "$(brew --prefix 2>/dev/null || true)"; do
-  [ -n "$p" ] && [ -L "$p/bin/calmpomo" ] && rm -f "$p/bin/calmpomo"
+  [ -n "$p" ] && [ "$(readlink "$p/bin/calmpomo" 2>/dev/null)" = "$ROOT/bin/calmpomo" ] && rm -f "$p/bin/calmpomo"
 done
 if [ -e "$STATE_DIR/.pinned-tomat" ]; then
   brew unpin tomat 2>/dev/null || true
