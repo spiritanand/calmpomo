@@ -203,7 +203,7 @@ Every start, pause, break and reset is appended to `~/Library/Application Suppor
 
 - **⚠ in the menu bar, or `calmpomo isn't running`**: the timer's login agent stopped. Run `./install.sh` again; if it still fails, it prints the last line of `~/Library/Application Support/calmpomo/daemon.log`.
 - **No menu bar item**: open SwiftBar once and check that its plugin folder contains `calmpomo.sh`. macOS may hide menu bar items when the bar is full.
-- **Breaks don't start by themselves, or no sounds and no session log**: the config probably has a mistake, so tomat fell back to its defaults. Run `calmpomo check`, fix what it reports, then `calmpomo reset`.
+- **Breaks don't start by themselves, or no sounds and no session log**: the config probably has a mistake, so tomat fell back to its defaults. Run `calmpomo check`, fix what it reports, then restart the timer with `launchctl kickstart -k gui/$(id -u)/io.github.spiritanand.calmpomo` (it keeps your place).
 - **Hotkey does nothing**: run the same command in a terminal. If it works there, use the full path in your hotkey tool.
 - **No sound**: check `calmpomo status` doesn't say `muted`, and that your output volume is up.
 

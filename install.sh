@@ -50,7 +50,6 @@ if ! brew list --formula tomat >/dev/null 2>&1; then
   say "Installing tomat"
   brew install jolars/tap/tomat
 fi
-brew pin tomat
 if [ ! -d /Applications/SwiftBar.app ] && ! brew list --cask swiftbar >/dev/null 2>&1; then
   say "Installing SwiftBar"
   brew install --cask swiftbar
@@ -64,6 +63,9 @@ esac
 
 say "Writing config to $CONF"
 mkdir -p "$CONF_DIR" "$STATE_DIR"
+if ! brew list --pinned 2>/dev/null | grep -qx tomat; then
+  brew pin tomat && touch "$STATE_DIR/.pinned-tomat"
+fi
 # tomat refuses a runtime dir that others can write to
 [ -d "$STATE_DIR/run" ] && chmod 700 "$STATE_DIR/run"
 SRC="$CONF"

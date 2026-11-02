@@ -152,7 +152,11 @@ check() {
     fail "Config has a mistake, so tomat would ignore all of it"
   fi
   settings=$(printf '%s\n' "$out" | sed -n 's/^ *Timer settings: //p' | head -n 1)
-  awk -v s="$settings" 'BEGIN {
+  if [ -z "$settings" ]; then
+    printf '%s\n' "$err" | sed '/^Using default configuration/d'
+    fail "tomat couldn't load $TOMAT_CONFIG, so it would use its defaults"
+  fi
+  LC_ALL=C awk -v s="$settings" 'BEGIN {
     n = split(s, kv, ", ")
     for (i = 1; i <= n; i++) {
       split(kv[i], p, "="); v = p[2] + 0
@@ -161,7 +165,7 @@ check() {
     }
     exit bad
   }' || fail "Config has a value tomat won't accept"
-  echo "Config OK · ${settings:-defaults}"
+  echo "Config OK · $settings"
 }
 
 cmd="${1:-status}"

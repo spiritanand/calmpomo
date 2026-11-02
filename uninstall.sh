@@ -20,7 +20,13 @@ if [ -n "$PLUGINS" ]; then
   fi
 fi
 rm -f "$STATE_DIR"/run/tomat.*
-rm -f "$(brew --prefix)/bin/calmpomo"
+for p in /opt/homebrew /usr/local "$(brew --prefix 2>/dev/null || true)"; do
+  [ -n "$p" ] && [ -L "$p/bin/calmpomo" ] && rm -f "$p/bin/calmpomo"
+done
+if [ -e "$STATE_DIR/.pinned-tomat" ]; then
+  brew unpin tomat 2>/dev/null || true
+  rm -f "$STATE_DIR/.pinned-tomat"
+fi
 
 if [ "${1:-}" = --purge ]; then
   rm -rf "$CONF_DIR" "$STATE_DIR"
