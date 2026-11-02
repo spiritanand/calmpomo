@@ -16,6 +16,7 @@ append_log() {
   line="$(date +%Y-%m-%dT%H:%M:%S%z)	$EVENT	${TOMAT_PHASE:-}	session=${TOMAT_SESSION_COUNT:-}	remaining=${TOMAT_REMAINING_SECONDS:-}"
   cutoff="$(date -v-"$LOG_MAX_DAYS"d +%Y-%m-%d)"
   # tomat fires end/start hooks concurrently, so serialize the append + trim
+  # shellcheck disable=SC2016
   lockf -k -t 5 "$LOG.lock" /bin/sh -c '
     printf "%s\n" "$1" >> "$2"
     if [ "$(head -c 10 "$2")" \< "$3" ] || [ "$(stat -f %z "$2")" -gt "$4" ]; then

@@ -108,8 +108,8 @@ status_line() {
   [ -e "$STATE_DIR/muted" ] && muted=" · muted"
   case $(state) in
     idle) echo "Idle$muted" ;;
-    work) echo "Focusing$muted" ;;
-    work-paused) echo "Focus paused$muted" ;;
+    work) echo "Focusing · $(remaining) left$muted" ;;
+    work-paused) echo "Focus paused · $(remaining) left$muted" ;;
     waiting) echo "Break's over · start focus$muted" ;;
     break) echo "Break · $(remaining) left$muted" ;;
     long-break) echo "Long break · $(remaining) left$muted" ;;

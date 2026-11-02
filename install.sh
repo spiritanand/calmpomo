@@ -33,6 +33,7 @@ done
 
 [ "$(uname)" = Darwin ] || die "calmpomo's menu bar needs macOS"
 command -v brew >/dev/null || die "Homebrew is required: https://brew.sh"
+# shellcheck disable=SC1003
 case $ROOT in *'"'*|*'\'*) die "move calmpomo to a folder whose path has no quotes or backslashes" ;; esac
 BREW_PREFIX="$(brew --prefix)"
 

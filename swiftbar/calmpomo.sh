@@ -46,8 +46,8 @@ render() {
     muted=""; [ -e "$STATE_DIR/muted" ] && muted=" · muted"
     case $class in
       idle) out="circle||Idle$muted|Start focus" ;;
-      work) out="circle.fill||Focusing$muted|Pause" ;;
-      work-paused) out="pause.circle||Focus paused$muted|Resume focus" ;;
+      work) out="circle.fill||Focusing${t:+ · $t left}$muted|Pause" ;;
+      work-paused) out="pause.circle||Focus paused${t:+ · $t left}$muted|Resume focus" ;;
       waiting) out="play.circle||Break's over$muted|Start focus" ;;
       break) out="cup.and.saucer| $t|Break$muted|Pause" ;;
       long-break) out="leaf| $t|Long break$muted|Pause" ;;
