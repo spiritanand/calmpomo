@@ -13,7 +13,13 @@ done
 
 PLUGINS="$(defaults read com.ameba.SwiftBar PluginDirectory 2>/dev/null || true)"
 PLUGINS="${PLUGINS/#\~/$HOME}"
-[ -n "$PLUGINS" ] && rm -f "$PLUGINS/calmpomo.sh"
+if [ -n "$PLUGINS" ]; then
+  rm -f "$PLUGINS/calmpomo.sh"
+  if [ "$PLUGINS" = "$HOME/.config/swiftbar" ] && rmdir "$PLUGINS" 2>/dev/null; then
+    defaults delete com.ameba.SwiftBar PluginDirectory 2>/dev/null || true
+  fi
+fi
+rm -f "$STATE_DIR"/run/tomat.*
 rm -f "$(brew --prefix)/bin/calmpomo"
 
 if [ "${1:-}" = --purge ]; then

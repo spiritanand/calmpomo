@@ -11,7 +11,10 @@ UID_NUM="$(id -u)"
 
 die() { echo "install.sh: $1" >&2; exit 2; }
 say() { printf '\033[1m==>\033[0m %s\n' "$1"; }
-duration() { [[ $2 =~ ^(0|[1-9][0-9]*)([.][0-9]+)?$ ]] && [[ ! $2 =~ ^0+([.]0*)?$ ]] || die "$1 needs a positive number of minutes"; }
+duration() {
+  [[ $2 =~ ^(0|[1-9][0-9]*)([.][0-9]+)?$ ]] && [[ ! $2 =~ ^0+([.]0*)?$ ]] || die "$1 needs a positive number of minutes"
+  awk -v m="$2" 'BEGIN { exit !(m >= 0.02 && m <= 600) }' || die "$1 must be between 0.02 and 600 minutes"
+}
 
 WORK="" BREAK="" LONG="" CYCLES=""
 while [ $# -gt 0 ]; do
@@ -26,13 +29,17 @@ while [ $# -gt 0 ]; do
     --focus) duration "$1" "$2"; WORK=$2 ;;
     --break) duration "$1" "$2"; BREAK=$2 ;;
     --long-break) duration "$1" "$2"; LONG=$2 ;;
-    --cycles) [[ $2 =~ ^[1-9][0-9]*$ ]] || die "--cycles needs a whole number of 1 or more"; CYCLES=$2 ;;
+    --cycles) [[ $2 =~ ^[1-9][0-9]*$ ]] && [ "$2" -le 100 ] || die "--cycles needs a whole number from 1 to 100"; CYCLES=$2 ;;
   esac
   shift 2
 done
 
 [ "$(uname)" = Darwin ] || die "calmpomo's menu bar needs macOS"
-command -v brew >/dev/null || die "Homebrew is required: https://brew.sh"
+if ! command -v brew >/dev/null; then
+  for b in /opt/homebrew/bin/brew /usr/local/bin/brew; do [ -x "$b" ] && eval "$("$b" shellenv)" && break; done
+  command -v brew >/dev/null || die "Homebrew is required: https://brew.sh"
+  echo "Homebrew isn't on your PATH; see 'Next steps' at the end of the Homebrew install to add it."
+fi
 # shellcheck disable=SC1003
 case $ROOT in *'"'*|*'\'*) die "move calmpomo to a folder whose path has no quotes or backslashes" ;; esac
 BREW_PREFIX="$(brew --prefix)"
@@ -42,13 +49,18 @@ SOCK="$STATE_DIR/run/tomat.sock"
 if ! brew list --formula tomat >/dev/null 2>&1; then
   say "Installing tomat"
   brew install jolars/tap/tomat
-  brew pin tomat
 fi
+brew pin tomat
 if [ ! -d /Applications/SwiftBar.app ] && ! brew list --cask swiftbar >/dev/null 2>&1; then
   say "Installing SwiftBar"
   brew install --cask swiftbar
 fi
 TOMAT="$BREW_PREFIX/opt/tomat/bin/tomat"
+TOMAT_VERSION="$("$TOMAT" --version | awk '{print $2}')"
+case $TOMAT_VERSION in
+  2.15.*) ;;
+  *) echo "Note: calmpomo is tested with tomat 2.15; you have $TOMAT_VERSION." ;;
+esac
 
 say "Writing config to $CONF"
 mkdir -p "$CONF_DIR" "$STATE_DIR"
@@ -98,6 +110,11 @@ if tomllib:
     tomllib.loads(text)
 open(dst, "w").write(text)
 PY
+if ! CHECK="$(CALMPOMO_CONFIG_FILE="$TMP" "$ROOT/bin/calmpomo" check 2>&1)"; then
+  rm -f "$TMP"
+  printf '%s\n' "${CHECK//"$TMP"/$CONF}" >&2
+  exit 1
+fi
 mv "$TMP" "$CONF"
 
 say "Starting the timer at login"
@@ -109,6 +126,8 @@ fill "$ROOT/launchd/timer.plist" "$AGENTS/$LABEL.plist"
 fill "$ROOT/launchd/menubar.plist" "$AGENTS/$LABEL.menubar.plist"
 for l in "$LABEL" "$LABEL.menubar"; do
   launchctl bootout "gui/$UID_NUM/$l" 2>/dev/null || true
+  # bootstrap fails with an I/O error if launchd is still tearing the old job down
+  for _ in 1 2 3 4 5 6 7 8 9 10; do launchctl print "gui/$UID_NUM/$l" >/dev/null 2>&1 || break; sleep 0.5; done
 done
 launchctl bootstrap "gui/$UID_NUM" "$AGENTS/$LABEL.plist"
 
