@@ -1,0 +1,105 @@
+#!/usr/bin/env bash
+set -uo pipefail
+
+export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}"
+CONF_DIR="${CALMPOMO_CONFIG_DIR:-$HOME/.config/calmpomo}"
+STATE_DIR="${CALMPOMO_STATE_DIR:-$HOME/Library/Application Support/calmpomo}"
+export TOMAT_CONFIG="$CONF_DIR/tomat.toml"
+export TOMAT_RUNTIME_DIR="$STATE_DIR/run"
+LOG="$STATE_DIR/sessions.log"
+
+usage() {
+  cat <<'EOF'
+calmpomo: calm pomodoro on top of tomat
+
+  calmpomo toggle         start, pause or resume (one key for everything)
+  calmpomo start [MIN]    start focus (optional minutes) or resume after a break
+  calmpomo pause          pause
+  calmpomo skip           jump to the next phase
+  calmpomo reset          stop and go back to idle
+  calmpomo status         one-line status
+  calmpomo mute|unmute    silence or restore sounds
+  calmpomo log [N]        last N session log lines (default 20)
+  calmpomo watch          JSON stream for the menu bar plugin
+EOF
+}
+
+raw_status() { tomat status -o waybar 2>/dev/null; }
+
+state() {
+  local s
+  s=$(raw_status) || { echo down; return; }
+  s=${s#*\"class\":\"}
+  s=${s%%\"*}
+  if [ "$s" = work-paused ] && [ -e "$STATE_DIR/awaiting" ]; then echo waiting; else echo "${s:-down}"; fi
+}
+
+field() {
+  local s
+  s=$(raw_status) || return
+  s=${s#*\"$1\":\"}
+  echo "${s%%\"*}"
+}
+
+remaining() { local t; t=$(field text); t=${t//[!0-9:]/}; echo "$t"; }
+
+down() { echo "calmpomo isn't running · run install.sh"; exit 1; }
+
+start() {
+  case $(state) in
+    idle)
+      if [ -n "${1:-}" ]; then tomat start --work "$1" >/dev/null; else tomat start >/dev/null; fi
+      echo "Focus started" ;;
+    waiting|work-paused|break-paused|long-break-paused) tomat resume >/dev/null; echo "Focus resumed" ;;
+    down) down ;;
+    *) echo "Already running" ;;
+  esac
+}
+
+pause() {
+  case $(state) in
+    work|break|long-break) tomat pause >/dev/null; echo "Paused" ;;
+    down) down ;;
+    *) echo "Nothing to pause" ;;
+  esac
+}
+
+status_line() {
+  local muted=""
+  [ -e "$STATE_DIR/muted" ] && muted=" · muted"
+  case $(state) in
+    idle) echo "Idle$muted" ;;
+    work) echo "Focusing$muted" ;;
+    work-paused) echo "Focus paused$muted" ;;
+    waiting) echo "Break's over · start focus$muted" ;;
+    break) echo "Break · $(remaining) left$muted" ;;
+    long-break) echo "Long break · $(remaining) left$muted" ;;
+    break-paused|long-break-paused) echo "Break paused · $(remaining) left$muted" ;;
+    *) echo "Not running" ;;
+  esac
+}
+
+cmd="${1:-status}"
+shift || true
+mkdir -p "$STATE_DIR"
+case $cmd in
+  toggle)
+    case $(state) in
+      work|break|long-break) pause ;;
+      *) start ;;
+    esac ;;
+  start) start "${1:-}" ;;
+  pause) pause ;;
+  resume) start ;;
+  skip) [ "$(state)" = down ] && down; tomat skip >/dev/null; echo "Skipped" ;;
+  reset|stop) [ "$(state)" = down ] && down; tomat stop >/dev/null; rm -f "$STATE_DIR/awaiting"; echo "Reset" ;;
+  status) status_line ;;
+  state) state ;;
+  mute) touch "$STATE_DIR/muted"; echo "Muted" ;;
+  unmute) rm -f "$STATE_DIR/muted"; echo "Sounds on" ;;
+  toggle-mute) if [ -e "$STATE_DIR/muted" ]; then rm -f "$STATE_DIR/muted"; echo "Sounds on"; else touch "$STATE_DIR/muted"; echo "Muted"; fi ;;
+  log) tail -n "${1:-20}" "$LOG" 2>/dev/null || echo "No sessions yet" ;;
+  watch) exec tomat watch -o waybar -f '{time}' -i 1 ;;
+  -h|--help|help) usage ;;
+  *) usage; exit 2 ;;
+esac

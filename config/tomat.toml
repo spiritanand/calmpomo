@@ -1,0 +1,52 @@
+[timer]
+work = 25
+break = 5
+long_break = 15
+sessions = 4
+auto_advance = "to-break"
+
+[sound]
+mode = "none"
+
+[notification]
+enabled = false
+
+[hooks.on_work_start]
+cmd = "__HOOK__"
+timeout = 15
+
+[hooks.on_work_end]
+cmd = "__HOOK__"
+timeout = 15
+
+[hooks.on_break_start]
+cmd = "__HOOK__"
+timeout = 15
+
+[hooks.on_break_end]
+cmd = "__HOOK__"
+timeout = 15
+
+[hooks.on_long_break_start]
+cmd = "__HOOK__"
+timeout = 15
+
+[hooks.on_long_break_end]
+cmd = "__HOOK__"
+timeout = 15
+
+[hooks.on_pause]
+cmd = "__HOOK__"
+timeout = 15
+
+[hooks.on_resume]
+cmd = "__HOOK__"
+timeout = 15
+
+[hooks.on_skip]
+cmd = "__HOOK__"
+timeout = 15
+
+[hooks.on_stop]
+cmd = "__HOOK__"
+timeout = 15

@@ -1,0 +1,39 @@
+#!/bin/bash
+export PATH="/usr/bin:/bin:/usr/sbin:/sbin"
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+STATE_DIR="${CALMPOMO_STATE_DIR:-$HOME/Library/Application Support/calmpomo}"
+LOG="$STATE_DIR/sessions.log"
+LOG_MAX_BYTES=1048576
+LOG_MAX_DAYS=365
+EVENT="${TOMAT_EVENT:-${1:-unknown}}"
+
+mkdir -p "$STATE_DIR"
+
+play() { [ -e "$STATE_DIR/muted" ] || afplay "$ROOT/sounds/$1.wav"; }
+
+append_log() {
+  local line cutoff
+  line="$(date +%Y-%m-%dT%H:%M:%S%z)	$EVENT	${TOMAT_PHASE:-}	session=${TOMAT_SESSION_COUNT:-}	remaining=${TOMAT_REMAINING_SECONDS:-}"
+  cutoff="$(date -v-"$LOG_MAX_DAYS"d +%Y-%m-%d)"
+  # tomat fires end/start hooks concurrently, so serialize the append + trim
+  lockf -k -t 5 "$LOG.lock" /bin/sh -c '
+    printf "%s\n" "$1" >> "$2"
+    if [ "$(head -c 10 "$2")" \< "$3" ] || [ "$(stat -f %z "$2")" -gt "$4" ]; then
+      awk -v c="$3" "substr(\$0,1,10) >= c" "$2" | tail -c "$4" | sed "1{/^[0-9]\{4\}-/!d;}" > "$2.tmp" && mv "$2.tmp" "$2"
+    fi
+  ' sh "$line" "$LOG" "$cutoff" "$LOG_MAX_BYTES"
+}
+
+case $EVENT in
+  break_end|long_break_end) touch "$STATE_DIR/awaiting" ;;
+  work_start|stop|pause|resume) rm -f "$STATE_DIR/awaiting" ;;
+esac
+
+append_log
+
+case $EVENT in
+  work_start) play focus_start ;;
+  break_start) play break_start ;;
+  long_break_start) play long_break ;;
+  break_end|long_break_end) play break_over ;;
+esac
