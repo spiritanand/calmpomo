@@ -35,7 +35,7 @@ The icons are SF Symbols, so they match the rest of your menu bar. Click the ite
 | Long break starts | the break sound, twice |
 | Break ends | one quiet note |
 
-All sounds sit at about -26 LUFS with no energy in the harsh 2–5 kHz range. `scripts/gen-sounds.py` rebuilds them; there are no audio samples to license. Mute everything with `calmpomo mute`.
+The sounds sit at about -26 LUFS, except the break-end note, which is kept quieter at -31 LUFS. None of them has energy in the harsh 2–5 kHz range. `scripts/gen-sounds.py` rebuilds them (needs ffmpeg); there are no audio samples to license. Mute everything with `calmpomo mute`.
 
 ## Requirements
 
@@ -79,9 +79,9 @@ The defaults are 25-minute focus, 5-minute break, 15-minute long break, and a lo
 | Reset Pomodoro | Ctrl+Cmd+; |
 | Skip Pomodoro Phase | Ctrl+Cmd+' |
 
-Other commands: **Pomodoro Status**, **Mute / Unmute Pomodoro**, and **Start Focus (Minutes)** for a one-off length.
+Other commands: **Pomodoro Status**, **Mute / Unmute Pomodoro**, and **Start Focus (Minutes)**, which starts a fresh focus of that length and keeps it until the next reset.
 
-Start / Pause is one key for everything. It starts focus when idle, starts the next focus after a break, and otherwise pauses or resumes.
+Start / Pause is one key for everything. It starts focus when idle, starts the next focus after a break, and otherwise pauses or resumes. Skip does nothing while calmpomo is waiting for you after a break: press Start / Pause instead.
 
 Any hotkey tool works instead of Raycast: bind your keys to `calmpomo toggle` and `calmpomo reset`.
 
@@ -89,7 +89,8 @@ Any hotkey tool works instead of Raycast: bind your keys to `calmpomo toggle` an
 
 ```
 calmpomo toggle         start, pause or resume
-calmpomo start [MIN]    start focus (optional minutes) or begin the next focus after a break
+calmpomo start [MIN]    start focus, or begin the next focus after a break
+                        (MIN starts a fresh focus of that length, kept until reset)
 calmpomo pause
 calmpomo skip           jump to the next phase
 calmpomo reset          stop and go back to idle
@@ -100,7 +101,7 @@ calmpomo log [N]        last N session log lines
 
 ## Settings
 
-Edit `~/.config/calmpomo/tomat.toml`. The `[timer]` section is read again every time a focus starts, so no restart is needed:
+Edit `~/.config/calmpomo/tomat.toml`. The `[timer]` section is read when a cycle starts from idle, so run `calmpomo reset` to apply an edit mid-cycle:
 
 ```toml
 [timer]

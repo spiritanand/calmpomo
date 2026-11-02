@@ -13,7 +13,8 @@ usage() {
 calmpomo: calm pomodoro on top of tomat
 
   calmpomo toggle         start, pause or resume (one key for everything)
-  calmpomo start [MIN]    start focus (optional minutes) or resume after a break
+  calmpomo start [MIN]    start focus, or begin the next focus after a break;
+                          MIN sets the focus length until the next reset
   calmpomo pause          pause
   calmpomo skip           jump to the next phase
   calmpomo reset          stop and go back to idle
@@ -24,44 +25,82 @@ calmpomo: calm pomodoro on top of tomat
 EOF
 }
 
-raw_status() { tomat status -o waybar 2>/dev/null; }
-
 state() {
   local s
-  s=$(raw_status) || { echo down; return; }
-  s=${s#*\"class\":\"}
-  s=${s%%\"*}
-  if [ "$s" = work-paused ] && [ -e "$STATE_DIR/awaiting" ]; then echo waiting; else echo "${s:-down}"; fi
+  s=$(tomat status -o waybar 2>/dev/null) || { echo down; return; }
+  case $s in *'"class":"'*) s=${s#*\"class\":\"}; s=${s%%\"*} ;; *) s="" ;; esac
+  case $s in
+    ''|disconnected) echo down ;;
+    work-paused) if [ -e "$STATE_DIR/awaiting" ]; then echo waiting; else echo work-paused; fi ;;
+    *) echo "$s" ;;
+  esac
 }
 
-field() {
-  local s
-  s=$(raw_status) || return
-  s=${s#*\"$1\":\"}
-  echo "${s%%\"*}"
+remaining() {
+  local t
+  t=$(tomat status -o waybar 2>/dev/null)
+  t=${t#*\"text\":\"}
+  t=${t%%\"*}
+  echo "${t//[!0-9:]/}"
 }
 
-remaining() { local t; t=$(field text); t=${t//[!0-9:]/}; echo "$t"; }
+fail() { echo "$1"; exit 1; }
+down() { fail "calmpomo isn't running · run install.sh"; }
+run() { tomat "$@" >/dev/null 2>&1; }
 
-down() { echo "calmpomo isn't running · run install.sh"; exit 1; }
+minutes() {
+  local m=${1// /}
+  m=${m%m}
+  [[ $m =~ ^[0-9]+([.][0-9]+)?$ ]] && [[ ! $m =~ ^0+([.]0*)?$ ]] || fail "Minutes must be a positive number"
+  echo "$m"
+}
 
 start() {
-  case $(state) in
-    idle)
-      if [ -n "${1:-}" ]; then tomat start --work "$1" >/dev/null; else tomat start >/dev/null; fi
-      echo "Focus started" ;;
-    waiting|work-paused|break-paused|long-break-paused) tomat resume >/dev/null; echo "Focus resumed" ;;
-    down) down ;;
+  local st m=""
+  st=$(state)
+  [ "$st" = down ] && down
+  if [ -n "${1:-}" ]; then
+    m=$(minutes "$1") || fail "$m"
+    # a fresh start resets tomat's long-break counter, so only do it when asked
+    run start --work "$m" || fail "Couldn't start focus"
+    rm -f "$STATE_DIR/awaiting"
+    echo "Focus started · ${m} min"
+    return
+  fi
+  case $st in
+    idle) run start || fail "Couldn't start focus"; echo "Focus started" ;;
+    waiting) run resume || fail "Couldn't start focus"; echo "Focus started" ;;
+    work-paused|break-paused|long-break-paused) run resume || fail "Couldn't resume"; echo "Resumed" ;;
     *) echo "Already running" ;;
   esac
 }
 
 pause() {
   case $(state) in
-    work|break|long-break) tomat pause >/dev/null; echo "Paused" ;;
+    work|break|long-break) run pause || fail "Couldn't pause"; echo "Paused" ;;
     down) down ;;
     *) echo "Nothing to pause" ;;
   esac
+}
+
+skip() {
+  case $(state) in
+    down) down ;;
+    idle) echo "Nothing to skip" ;;
+    waiting) echo "Break's over · start focus" ;;
+    *-paused)
+      # tomat keeps the paused elapsed time across a skip (jolars/tomat#118); reset clears it
+      run reset
+      run skip || fail "Couldn't skip"; echo "Skipped" ;;
+    *) run skip || fail "Couldn't skip"; echo "Skipped" ;;
+  esac
+}
+
+reset() {
+  [ "$(state)" = down ] && down
+  run stop || fail "Couldn't reset"
+  rm -f "$STATE_DIR/awaiting"
+  echo "Reset"
 }
 
 status_line() {
@@ -91,8 +130,8 @@ case $cmd in
   start) start "${1:-}" ;;
   pause) pause ;;
   resume) start ;;
-  skip) [ "$(state)" = down ] && down; tomat skip >/dev/null; echo "Skipped" ;;
-  reset|stop) [ "$(state)" = down ] && down; tomat stop >/dev/null; rm -f "$STATE_DIR/awaiting"; echo "Reset" ;;
+  skip) skip ;;
+  reset|stop) reset ;;
   status) status_line ;;
   state) state ;;
   mute) touch "$STATE_DIR/muted"; echo "Muted" ;;
