@@ -136,9 +136,9 @@ say "Status: $("$ROOT/bin/calmpomo" status)"
 
 cat <<EOF
 
-Done. One manual step for Raycast:
-  Raycast → Settings → Extensions → + → Add Script Directory → $ROOT/raycast
-  Then give hotkeys to "Start / Pause Focus" and "Reset Pomodoro".
+Done. Bind hotkeys to "calmpomo toggle" and "calmpomo reset" in any tool that runs commands.
+Raycast: Settings → Extensions → + → Add Script Directory → $ROOT/raycast
+Other tools (Hammerspoon, AeroSpace, skhd, Shortcuts): see README.md
 
 Timer settings live in $CONF.
 They apply the next time a focus starts from idle; run "calmpomo reset" to apply them mid-cycle.
