@@ -45,9 +45,6 @@ def write(path, x):
 
 
 def loudnorm(src, dst, lufs):
-    if not shutil.which("ffmpeg"):
-        os.replace(src, dst)
-        return
     probe = subprocess.run(
         ["ffmpeg", "-hide_banner", "-nostats", "-i", src, "-af", "ebur128", "-f", "null", "-"],
         capture_output=True, text=True, check=True,
@@ -65,6 +62,9 @@ SOUNDS = {
     "break_start": (seq([(D5, 0, 1.6, 0.5, 0.025), (G4, 0.22, 1.58, 0.6, 0.025)], 1.8), -26),
     "break_over": (seq([(G4, 0, 1.2, 0.35, 0.03)], 1.3), -31),
 }
+
+if not shutil.which("ffmpeg"):
+    sys.exit("gen-sounds: ffmpeg is required for loudness matching (brew install ffmpeg)")
 
 out = sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(__file__), "..", "sounds")
 for name, (samples, lufs) in SOUNDS.items():

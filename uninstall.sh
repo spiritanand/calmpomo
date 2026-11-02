@@ -12,6 +12,7 @@ for l in "$LABEL" "$LABEL.menubar"; do
 done
 
 PLUGINS="$(defaults read com.ameba.SwiftBar PluginDirectory 2>/dev/null || true)"
+PLUGINS="${PLUGINS/#\~/$HOME}"
 [ -n "$PLUGINS" ] && rm -f "$PLUGINS/calmpomo.sh"
 rm -f "$(brew --prefix)/bin/calmpomo"
 
