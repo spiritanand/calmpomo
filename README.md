@@ -61,6 +61,8 @@ The installer:
 
 The installed pieces link back to your clone, so keep it where it is. If you move it, run `./install.sh` again from the new place and re-add the Raycast script directory.
 
+To update, run `git pull && ./install.sh` in your clone. Your config is kept, and the timer restarts where it was.
+
 Pick your own durations at install time:
 
 ```
@@ -178,7 +180,7 @@ calmpomo check          check the config file for mistakes
 
 ## Settings
 
-Edit `~/.config/calmpomo/tomat.toml`, then run `calmpomo check`: tomat quietly ignores a config with any mistake in it. The `[timer]` section is read when a cycle starts from idle, so run `calmpomo reset` to apply an edit mid-cycle:
+Edit `~/.config/calmpomo/tomat.toml`, then run `calmpomo check`: tomat quietly ignores a config with any mistake in it, and skips unknown keys and sections. The `[timer]` section is read when a cycle starts from idle, so run `calmpomo reset` to apply an edit mid-cycle:
 
 ```toml
 [timer]
@@ -203,7 +205,7 @@ Every start, pause, break and reset is appended to `~/Library/Application Suppor
 
 - **⚠ in the menu bar, or `calmpomo isn't running`**: the timer's login agent stopped. Run `./install.sh` again; if it still fails, it prints the last line of `~/Library/Application Support/calmpomo/daemon.log`.
 - **No menu bar item**: open SwiftBar once and check that its plugin folder contains `calmpomo.sh`. macOS may hide menu bar items when the bar is full.
-- **Breaks don't start by themselves, or no sounds and no session log**: the config probably has a mistake, so tomat fell back to its defaults. Run `calmpomo check`, fix what it reports, then restart the timer with `launchctl kickstart -k gui/$(id -u)/io.github.spiritanand.calmpomo` (it keeps your place).
+- **Breaks don't start by themselves, or no sounds and no session log**: the config probably has a mistake, so tomat fell back to its defaults. Run `calmpomo check`, fix what it reports, then restart the timer with `launchctl kickstart -k gui/$(id -u)/io.github.spiritanand.calmpomo` to reload the hooks, and run `calmpomo reset` to reload the timer settings.
 - **Hotkey does nothing**: run the same command in a terminal. If it works there, use the full path in your hotkey tool.
 - **No sound**: check `calmpomo status` doesn't say `muted`, and that your output volume is up.
 

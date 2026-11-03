@@ -26,24 +26,19 @@ calmpomo: calm pomodoro on top of tomat
 EOF
 }
 
-state() {
-  local s
-  s=$(tomat status -o waybar 2>/dev/null) || { echo down; return; }
-  case $s in *'"class":"'*) s=${s#*\"class\":\"}; s=${s%%\"*} ;; *) s="" ;; esac
-  case $s in
-    ''|disconnected) echo down ;;
-    work-paused) if [ -e "$STATE_DIR/awaiting" ]; then echo waiting; else echo work-paused; fi ;;
-    *) echo "$s" ;;
+ST=down TIME=""
+query() {
+  local s re='"text":"([^"]*)".*"class":"([a-z-]+)"'
+  ST=down TIME=""
+  s=$(tomat status -o waybar -f '{time}' 2>/dev/null) && [[ $s =~ $re ]] || return 0
+  TIME=${BASH_REMATCH[1]//[!0-9:]/} ST=${BASH_REMATCH[2]}
+  case $ST in
+    disconnected) ST=down ;;
+    work-paused) [ -e "$STATE_DIR/awaiting" ] && ST=waiting ;;
   esac
+  return 0
 }
-
-remaining() {
-  local t
-  t=$(tomat status -o waybar 2>/dev/null)
-  t=${t#*\"text\":\"}
-  t=${t%%\"*}
-  echo "${t//[!0-9:]/}"
-}
+state() { query; echo "$ST"; }
 
 fail() { echo "$1"; exit 1; }
 down() { fail "calmpomo isn't running · run install.sh"; }
@@ -61,7 +56,9 @@ why() { fail "$1${RUN_ERR:+ · $RUN_ERR}"; }
 minutes() {
   local m=${1// /}
   m=${m%m}
-  [[ $m =~ ^(0|[1-9][0-9]*)([.][0-9]+)?$ ]] && [[ ! $m =~ ^0+([.]0*)?$ ]] || fail "Minutes must be a positive number"
+  m=${m/,/.}
+  [[ $m == .* ]] && m=0$m
+  [[ $m =~ ^(0|[1-9][0-9]*)([.][0-9]+)?$ ]] && [[ ! $m =~ ^0+([.]0*)?$ ]] || fail "Minutes must be a number like 25 or 0.5"
   awk -v m="$m" 'BEGIN { exit !(m >= 0.02 && m <= 600) }' || fail "Minutes must be between 0.02 and 600"
   echo "$m"
 }
@@ -122,14 +119,15 @@ reset() {
 status_line() {
   local muted=""
   [ -e "$STATE_DIR/muted" ] && muted=" · muted"
-  case $(state) in
+  query
+  case $ST in
     idle) echo "Idle$muted" ;;
-    work) echo "Focusing · $(remaining) left$muted" ;;
-    work-paused) echo "Focus paused · $(remaining) left$muted" ;;
+    work) echo "Focusing · $TIME left$muted" ;;
+    work-paused) echo "Focus paused · $TIME left$muted" ;;
     waiting) echo "Break's over · start focus$muted" ;;
-    break) echo "Break · $(remaining) left$muted" ;;
-    long-break) echo "Long break · $(remaining) left$muted" ;;
-    break-paused|long-break-paused) echo "Break paused · $(remaining) left$muted" ;;
+    break) echo "Break · $TIME left$muted" ;;
+    long-break) echo "Long break · $TIME left$muted" ;;
+    break-paused|long-break-paused) echo "Break paused · $TIME left$muted" ;;
     *) down ;;
   esac
 }
@@ -151,11 +149,26 @@ check() {
     printf '%s\n' "$err" | sed '/^Using default configuration/d'
     fail "Config has a mistake, so tomat would ignore all of it"
   fi
-  settings=$(printf '%s\n' "$out" | sed -n 's/^ *Timer settings: //p' | head -n 1)
-  if [ -z "$settings" ]; then
+  if [[ $err == *"Failed to read"* || $err == *"Using default configuration"* || -z $out ]]; then
     printf '%s\n' "$err" | sed '/^Using default configuration/d'
     fail "tomat couldn't load $TOMAT_CONFIG, so it would use its defaults"
   fi
+  LC_ALL=C awk '
+    { sub(/#.*/, ""); gsub(/[ \t\r]/, "") }
+    /^\[/ {
+      sec = $0; gsub(/[][]/, "", sec)
+      if (sec !~ /^(timer|sound|notification|display|hooks\.on_(work|break|long_break)_(start|end)|hooks\.on_(pause|resume|skip|stop))$/) print "Unknown section [" sec "], tomat ignores it"
+      next
+    }
+    sec == "timer" && /=/ {
+      k = $0; sub(/=.*/, "", k)
+      if (k == "auto_advance") aa = $0
+      else if (k !~ /^(work|break|long_break|sessions)$/) print "Unknown [timer] key " k ", tomat ignores it"
+    }
+    END { if (aa != "auto_advance=\"to-break\"") print "[timer] needs auto_advance = \"to-break\", or breaks won'"'"'t start by themselves" }
+  ' "$TOMAT_CONFIG" | grep . && fail "Config has settings tomat would ignore"
+  settings=$(printf '%s\n' "$out" | sed -n 's/^ *Timer settings: //p' | head -n 1)
+  [ -n "$settings" ] || { echo "Config loads · couldn't range-check it with tomat $(tomat --version | awk '{print $2}')"; return 0; }
   LC_ALL=C awk -v s="$settings" 'BEGIN {
     n = split(s, kv, ", ")
     for (i = 1; i <= n; i++) {
@@ -194,7 +207,10 @@ case $cmd in
   mute) touch "$STATE_DIR/muted"; echo "Muted" ;;
   unmute) rm -f "$STATE_DIR/muted"; echo "Sounds on" ;;
   toggle-mute) if [ -e "$STATE_DIR/muted" ]; then rm -f "$STATE_DIR/muted"; echo "Sounds on"; else touch "$STATE_DIR/muted"; echo "Muted"; fi ;;
-  log) tail -n "${1:-20}" "$LOG" 2>/dev/null || echo "No sessions yet" ;;
+  log)
+    n=${1:-20}
+    [[ $n =~ ^[0-9]+$ ]] || fail "N must be a whole number"
+    if [ -s "$LOG" ]; then tail -n "$n" "$LOG"; else echo "No sessions yet"; fi ;;
   check) check ;;
   watch) exec tomat watch -o waybar -f '{time}' -i 1 ;;
   -h|--help|help) usage ;;
