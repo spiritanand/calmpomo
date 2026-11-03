@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+ROOT="$(cd "$(dirname "$0")" && pwd)"
 LABEL=io.github.spiritanand.calmpomo
 AGENTS="$HOME/Library/LaunchAgents"
 CONF_DIR="$HOME/.config/calmpomo"
@@ -13,8 +14,20 @@ done
 
 PLUGINS="$(defaults read com.ameba.SwiftBar PluginDirectory 2>/dev/null || true)"
 PLUGINS="${PLUGINS/#\~/$HOME}"
-[ -n "$PLUGINS" ] && rm -f "$PLUGINS/calmpomo.sh"
-rm -f "$(brew --prefix)/bin/calmpomo"
+if [ -n "$PLUGINS" ]; then
+  rm -f "$PLUGINS/calmpomo.sh"
+  if [ "$PLUGINS" = "$HOME/.config/swiftbar" ] && rmdir "$PLUGINS" 2>/dev/null; then
+    defaults delete com.ameba.SwiftBar PluginDirectory 2>/dev/null || true
+  fi
+fi
+rm -f "$STATE_DIR"/run/tomat.*
+for p in /opt/homebrew /usr/local "$(brew --prefix 2>/dev/null || true)"; do
+  [ -n "$p" ] && [ "$(readlink "$p/bin/calmpomo" 2>/dev/null)" = "$ROOT/bin/calmpomo" ] && rm -f "$p/bin/calmpomo"
+done
+if [ -e "$STATE_DIR/.pinned-tomat" ]; then
+  brew unpin tomat 2>/dev/null || true
+  rm -f "$STATE_DIR/.pinned-tomat"
+fi
 
 if [ "${1:-}" = --purge ]; then
   rm -rf "$CONF_DIR" "$STATE_DIR"

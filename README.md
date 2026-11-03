@@ -39,7 +39,7 @@ The sounds sit at about -26 LUFS, except the break-end note, which is kept quiet
 
 ## Requirements
 
-- macOS
+- macOS 12 or later
 - [Homebrew](https://brew.sh)
 - Something that can run a command on a hotkey (optional: the menu bar works on its own)
 
@@ -53,13 +53,13 @@ cd ~/calmpomo
 
 The installer:
 
-1. installs tomat (`jolars/tap/tomat`, pinned) and SwiftBar if they're missing
+1. installs tomat (`jolars/tap/tomat`) and SwiftBar if they're missing, and pins tomat so `brew upgrade` leaves it alone. calmpomo is tested with tomat 2.15; the installer warns about other versions
 2. writes `~/.config/calmpomo/tomat.toml`
 3. adds two login agents: one runs the timer, one opens SwiftBar
 4. links the menu bar plugin into SwiftBar's plugin folder
 5. links `calmpomo` into your Homebrew `bin`
 
-The installed pieces link back to your clone, so keep it where it is. If you move it, run `./install.sh` again from the new place.
+The installed pieces link back to your clone, so keep it where it is. If you move it, run `./install.sh` again from the new place and re-add the Raycast script directory.
 
 Pick your own durations at install time:
 
@@ -67,7 +67,7 @@ Pick your own durations at install time:
 ./install.sh --focus 90 --break 15 --long-break 45 --cycles 2
 ```
 
-The defaults are 25-minute focus, 5-minute break, 15-minute long break, and a long break after every 4 focus blocks.
+Durations go up to 600 minutes and cycles up to 100. The defaults are 25-minute focus, 5-minute break, 15-minute long break, and a long break after every 4 focus blocks.
 
 Check it works:
 
@@ -105,7 +105,7 @@ The other commands are:
 
 - **Pomodoro Status** shows the current state and time left, for example `Focusing · 47:12 left`
 - **Mute / Unmute Pomodoro**
-- **Start Focus (Minutes)** starts a fresh focus of the length you type and keeps it until the next reset
+- **Start Focus (Minutes)** starts a fresh focus of the length you type (0.02 to 600) and keeps it until the next reset. It also restarts the count toward the long break
 
 ### Hammerspoon
 
@@ -125,7 +125,7 @@ hs.hotkey.bind({"ctrl", "cmd"}, "'", pomo("skip"))
 
 ### AeroSpace
 
-In `~/.aerospace.toml`, under `[mode.main.binding]`:
+In `~/.aerospace.toml` (or `~/.config/aerospace/aerospace.toml`), under `[mode.main.binding]`, then run `aerospace reload-config`:
 
 ```toml
 ctrl-cmd-k = 'exec-and-forget /opt/homebrew/bin/calmpomo toggle'
@@ -150,7 +150,7 @@ Make an action that runs a shell script, put `/opt/homebrew/bin/calmpomo toggle`
 - **Shortcuts**: turn on **Settings → Advanced → Allow Running Scripts**, add a **Run Shell Script** action, then use **Add Keyboard Shortcut** in the shortcut's details.
 - **Alfred** (Powerpack): a workflow with a **Hotkey** trigger connected to a **Run Script** action.
 - **Keyboard Maestro**: a macro with a **Hot Key** trigger and an **Execute Shell Script** action.
-- **BetterTouchTool**: a keyboard shortcut whose action is **Execute Terminal Command**.
+- **BetterTouchTool**: a keyboard shortcut whose action is **Execute Shell Script / Task** (called **Execute Terminal Command** in older versions).
 
 ### Terminal only
 
@@ -165,18 +165,20 @@ alias pomo='calmpomo toggle' pomoreset='calmpomo reset'
 ```
 calmpomo toggle         start, pause or resume
 calmpomo start [MIN]    start focus, or begin the next focus after a break
-                        (MIN starts a fresh focus of that length, kept until reset)
+                        (MIN starts a fresh focus of that length, kept until reset,
+                        and restarts the count toward the long break)
 calmpomo pause
 calmpomo skip           jump to the next phase
 calmpomo reset          stop and go back to idle
 calmpomo status         state and time left
 calmpomo mute | unmute | toggle-mute
 calmpomo log [N]        last N session log lines
+calmpomo check          check the config file for mistakes
 ```
 
 ## Settings
 
-Edit `~/.config/calmpomo/tomat.toml`. The `[timer]` section is read when a cycle starts from idle, so run `calmpomo reset` to apply an edit mid-cycle:
+Edit `~/.config/calmpomo/tomat.toml`, then run `calmpomo check`: tomat quietly ignores a config with any mistake in it. The `[timer]` section is read when a cycle starts from idle, so run `calmpomo reset` to apply an edit mid-cycle:
 
 ```toml
 [timer]
@@ -201,6 +203,7 @@ Every start, pause, break and reset is appended to `~/Library/Application Suppor
 
 - **⚠ in the menu bar, or `calmpomo isn't running`**: the timer's login agent stopped. Run `./install.sh` again; if it still fails, it prints the last line of `~/Library/Application Support/calmpomo/daemon.log`.
 - **No menu bar item**: open SwiftBar once and check that its plugin folder contains `calmpomo.sh`. macOS may hide menu bar items when the bar is full.
+- **Breaks don't start by themselves, or no sounds and no session log**: the config probably has a mistake, so tomat fell back to its defaults. Run `calmpomo check`, fix what it reports, then restart the timer with `launchctl kickstart -k gui/$(id -u)/io.github.spiritanand.calmpomo` (it keeps your place).
 - **Hotkey does nothing**: run the same command in a terminal. If it works there, use the full path in your hotkey tool.
 - **No sound**: check `calmpomo status` doesn't say `muted`, and that your output volume is up.
 

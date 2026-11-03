@@ -4,7 +4,7 @@ set -uo pipefail
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}"
 CONF_DIR="${CALMPOMO_CONFIG_DIR:-$HOME/.config/calmpomo}"
 STATE_DIR="${CALMPOMO_STATE_DIR:-$HOME/Library/Application Support/calmpomo}"
-export TOMAT_CONFIG="$CONF_DIR/tomat.toml"
+export TOMAT_CONFIG="${CALMPOMO_CONFIG_FILE:-$CONF_DIR/tomat.toml}"
 export TOMAT_RUNTIME_DIR="$STATE_DIR/run"
 LOG="$STATE_DIR/sessions.log"
 
@@ -21,6 +21,7 @@ calmpomo: calm pomodoro on top of tomat
   calmpomo status         one-line status
   calmpomo mute|unmute    silence or restore sounds
   calmpomo log [N]        last N session log lines (default 20)
+  calmpomo check          check the config file for mistakes
   calmpomo watch          JSON stream for the menu bar plugin
 EOF
 }
@@ -46,12 +47,22 @@ remaining() {
 
 fail() { echo "$1"; exit 1; }
 down() { fail "calmpomo isn't running · run install.sh"; }
-run() { tomat "$@" >/dev/null 2>&1; }
+RUN_ERR=""
+run() {
+  local out
+  out=$(tomat "$@" 2>&1) && return
+  out=${out##*$'\n'}
+  out=${out#Error: }
+  RUN_ERR=${out//\"/}
+  return 1
+}
+why() { fail "$1${RUN_ERR:+ · $RUN_ERR}"; }
 
 minutes() {
   local m=${1// /}
   m=${m%m}
   [[ $m =~ ^(0|[1-9][0-9]*)([.][0-9]+)?$ ]] && [[ ! $m =~ ^0+([.]0*)?$ ]] || fail "Minutes must be a positive number"
+  awk -v m="$m" 'BEGIN { exit !(m >= 0.02 && m <= 600) }' || fail "Minutes must be between 0.02 and 600"
   echo "$m"
 }
 
@@ -62,22 +73,24 @@ start() {
   if [ -n "${1:-}" ]; then
     m=$(minutes "$1") || fail "$m"
     # a fresh start resets tomat's long-break counter, so only do it when asked
-    run start --work "$m" || fail "Couldn't start focus"
+    # tomat's start keeps paused time and a held work_start hook from the old session
+    [ "$st" = idle ] || run stop || why "Couldn't start focus"
+    run start --work "$m" || why "Couldn't start focus"
     rm -f "$STATE_DIR/awaiting"
     echo "Focus started · ${m} min"
     return
   fi
   case $st in
-    idle) run start || fail "Couldn't start focus"; echo "Focus started" ;;
-    waiting) run resume || fail "Couldn't start focus"; echo "Focus started" ;;
-    work-paused|break-paused|long-break-paused) run resume || fail "Couldn't resume"; echo "Resumed" ;;
+    idle) run start || why "Couldn't start focus"; echo "Focus started" ;;
+    waiting) run resume || why "Couldn't start focus"; rm -f "$STATE_DIR/awaiting"; echo "Focus started" ;;
+    work-paused|break-paused|long-break-paused) run resume || why "Couldn't resume"; echo "Resumed" ;;
     *) echo "Already running" ;;
   esac
 }
 
 pause() {
   case $(state) in
-    work|break|long-break) run pause || fail "Couldn't pause"; echo "Paused" ;;
+    work|break|long-break) run pause || why "Couldn't pause"; echo "Paused" ;;
     down) down ;;
     *) echo "Nothing to pause" ;;
   esac
@@ -91,14 +104,17 @@ skip() {
     *-paused)
       # tomat keeps the paused elapsed time across a skip (jolars/tomat#118); reset clears it
       run reset
-      run skip || fail "Couldn't skip"; echo "Skipped" ;;
-    *) run skip || fail "Couldn't skip"; echo "Skipped" ;;
+      run skip || why "Couldn't skip"; echo "Skipped" ;;
+    *) run skip || why "Couldn't skip"; echo "Skipped" ;;
   esac
 }
 
 reset() {
-  [ "$(state)" = down ] && down
-  run stop || fail "Couldn't reset"
+  case $(state) in
+    down) down ;;
+    idle) rm -f "$STATE_DIR/awaiting"; echo "Reset"; return ;;
+  esac
+  run stop || why "Couldn't reset"
   rm -f "$STATE_DIR/awaiting"
   echo "Reset"
 }
@@ -114,13 +130,54 @@ status_line() {
     break) echo "Break · $(remaining) left$muted" ;;
     long-break) echo "Long break · $(remaining) left$muted" ;;
     break-paused|long-break-paused) echo "Break paused · $(remaining) left$muted" ;;
-    *) echo "Not running"; exit 1 ;;
+    *) down ;;
   esac
 }
 
+check() {
+  local rt p out err settings
+  rt=$(mktemp -d /tmp/calmpomo-check.XXXXXX) || fail "Couldn't check the config"
+  # a throwaway daemon is the only parser that knows tomat's rules; it falls back to defaults silently
+  TOMAT_RUNTIME_DIR=$rt tomat daemon run >"$rt/out" 2>"$rt/err" &
+  p=$!
+  for _ in $(seq 30); do { [ -S "$rt/tomat.sock" ] || [ -s "$rt/err" ]; } && break; sleep 0.1; done
+  kill "$p" 2>/dev/null
+  wait "$p" 2>/dev/null
+  out=$(cat "$rt/out") err=$(cat "$rt/err")
+  rm -f "$rt"/*
+  rmdir "$rt"
+  [ -f "$TOMAT_CONFIG" ] || fail "No config at $TOMAT_CONFIG · run install.sh"
+  if [[ $err == *"Failed to parse"* ]]; then
+    printf '%s\n' "$err" | sed '/^Using default configuration/d'
+    fail "Config has a mistake, so tomat would ignore all of it"
+  fi
+  settings=$(printf '%s\n' "$out" | sed -n 's/^ *Timer settings: //p' | head -n 1)
+  if [ -z "$settings" ]; then
+    printf '%s\n' "$err" | sed '/^Using default configuration/d'
+    fail "tomat couldn't load $TOMAT_CONFIG, so it would use its defaults"
+  fi
+  LC_ALL=C awk -v s="$settings" 'BEGIN {
+    n = split(s, kv, ", ")
+    for (i = 1; i <= n; i++) {
+      split(kv[i], p, "="); v = p[2] + 0
+      if (p[1] == "sessions" && (v < 1 || v > 100)) { print "sessions must be 1 to 100"; bad = 1 }
+      if (p[1] != "sessions" && (v <= 0 || v > 600)) { print p[1] " must be more than 0 and at most 600 minutes"; bad = 1 }
+    }
+    exit bad
+  }' || fail "Config has a value tomat won't accept"
+  echo "Config OK · $settings"
+}
+
 cmd="${1:-status}"
-shift || true
 mkdir -p "$STATE_DIR"
+case $cmd in
+  toggle|start|pause|resume|skip|reset|stop)
+    # a held-down hotkey can run two commands at once and both would act on the same state
+    if [ -z "${CALMPOMO_LOCKED:-}" ]; then
+      CALMPOMO_LOCKED=1 exec lockf -k -t 3 "$STATE_DIR/cli.lock" "$0" "$@"
+    fi ;;
+esac
+shift || true
 case $cmd in
   toggle)
     case $(state) in
@@ -138,6 +195,7 @@ case $cmd in
   unmute) rm -f "$STATE_DIR/muted"; echo "Sounds on" ;;
   toggle-mute) if [ -e "$STATE_DIR/muted" ]; then rm -f "$STATE_DIR/muted"; echo "Sounds on"; else touch "$STATE_DIR/muted"; echo "Muted"; fi ;;
   log) tail -n "${1:-20}" "$LOG" 2>/dev/null || echo "No sessions yet" ;;
+  check) check ;;
   watch) exec tomat watch -o waybar -f '{time}' -i 1 ;;
   -h|--help|help) usage ;;
   *) usage; exit 2 ;;

@@ -19,14 +19,14 @@ STATE_DIR="${CALMPOMO_STATE_DIR:-$HOME/Library/Application Support/calmpomo}"
 item() { echo "$1 | bash=\"$CLI\" param1=$2 terminal=false refresh=false"; }
 
 emit() {
-  local icon=$1 text=$2 tip=$3 primary=$4 skip=yes reset=yes
-  case $5 in idle) skip=no; reset=no ;; waiting) skip=no ;; esac
+  local icon=$1 text=$2 tip=$3 primary=$4 action=$5 skip=yes reset=yes
+  case $6 in idle) skip=no; reset=no ;; waiting) skip=no ;; esac
   echo "~~~"
   echo "$text | sfimage=$icon sfsize=13"
   echo "---"
   echo "$tip | disabled=true"
   echo "---"
-  item "$primary" toggle
+  item "$primary" "$action"
   [ "$skip" = yes ] && item "Skip" skip
   [ "$reset" = yes ] && item "Reset" reset
   if [ -e "$STATE_DIR/muted" ]; then item "Unmute sounds" unmute; else item "Mute sounds" mute; fi
@@ -39,27 +39,27 @@ render() {
     if [[ $line =~ $re ]]; then t=${BASH_REMATCH[1]//[!0-9:]/}; class=${BASH_REMATCH[2]}; else continue; fi
     # a break can only turn into paused focus by ending, so don't wait for the hook's flag
     if [ "$class" = work-paused ]; then
-      case $prev in break|long-break|waiting) class=waiting ;; esac
+      case $prev in break|long-break) class=waiting ;; esac
       [ -e "$STATE_DIR/awaiting" ] && class=waiting
     fi
     prev=$class
     muted=""; [ -e "$STATE_DIR/muted" ] && muted=" · muted"
     case $class in
-      idle) out="circle||Idle$muted|Start focus" ;;
-      work) out="circle.fill||Focusing${t:+ · $t left}$muted|Pause" ;;
-      work-paused) out="pause.circle||Focus paused${t:+ · $t left}$muted|Resume focus" ;;
-      waiting) out="play.circle||Break's over$muted|Start focus" ;;
-      break) out="cup.and.saucer| $t|Break$muted|Pause" ;;
-      long-break) out="leaf| $t|Long break$muted|Pause" ;;
-      break-paused) out="pause.circle| $t|Break paused$muted|Resume break" ;;
-      long-break-paused) out="pause.circle| $t|Long break paused$muted|Resume break" ;;
-      *) out="exclamationmark.circle||Unknown state|Start focus" ;;
+      idle) out="circle||Idle$muted|Start focus|start" ;;
+      work) out="circle.fill||Focusing${t:+ · $t left}$muted|Pause|pause" ;;
+      work-paused) out="pause.circle||Focus paused${t:+ · $t left}$muted|Resume focus|start" ;;
+      waiting) out="play.circle||Break's over$muted|Start focus|start" ;;
+      break) out="cup.and.saucer| $t|Break$muted|Pause|pause" ;;
+      long-break) out="leaf| $t|Long break$muted|Pause|pause" ;;
+      break-paused) out="pause.circle| $t|Break paused$muted|Resume break|start" ;;
+      long-break-paused) out="pause.circle| $t|Long break paused$muted|Resume break|start" ;;
+      *) out="exclamationmark.circle||Unknown state|Start focus|start" ;;
     esac
     out="$out|$class"
     [ "$out" = "$last" ] && continue
     last=$out
-    IFS='|' read -r a b c d e <<<"$out"
-    emit "$a" "$b" "$c" "$d" "$e"
+    IFS='|' read -r a b c d e f <<<"$out"
+    emit "$a" "$b" "$c" "$d" "$e" "$f"
   done
 }
 
