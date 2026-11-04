@@ -12,7 +12,7 @@ UID_NUM="$(id -u)"
 die() { echo "install.sh: $1" >&2; exit 2; }
 say() { printf '\033[1m==>\033[0m %s\n' "$1"; }
 duration() {
-  [[ $2 =~ ^(0|[1-9][0-9]*)([.][0-9]+)?$ ]] && [[ ! $2 =~ ^0+([.]0*)?$ ]] || die "$1 needs a positive number of minutes"
+  [[ $2 =~ ^(0|[1-9][0-9]*)([.][0-9]+)?$ ]] && [[ ! $2 =~ ^0+([.]0*)?$ ]] || die "$1 needs a number of minutes like 25 or 0.5"
   awk -v m="$2" 'BEGIN { exit !(m >= 0.02 && m <= 600) }' || die "$1 must be between 0.02 and 600 minutes"
 }
 
@@ -71,16 +71,13 @@ fi
 SRC="$CONF"
 [ -f "$CONF" ] || SRC="$ROOT/config/tomat.toml"
 TMP="$(mktemp "$CONF_DIR/.tomat.XXXXXX")"
+trap 'rm -f "$TMP"' EXIT
 HOOK="$ROOT/libexec/calmpomo-hook" WORK="$WORK" BREAK="$BREAK" LONG="$LONG" CYCLES="$CYCLES" \
   python3 -I - "$SRC" "$TMP" <<'PY'
 import os, re, sys
-try:
-    import tomllib
-except ImportError:
-    tomllib = None
 src, dst = sys.argv[1], sys.argv[2]
 hook = os.environ["HOOK"]
-text = open(src).read()
+text = open(src, encoding="utf-8", errors="surrogateescape").read()
 text = text.replace("__HOOK__", hook)
 text = re.sub(r'^cmd = ".*calmpomo-hook"', lambda _: f'cmd = "{hook}"', text, flags=re.M)
 lines, out, in_timer, seen = text.splitlines(), [], False, set()
@@ -108,12 +105,9 @@ for line in lines:
 if in_timer:
     flush()
 text = "\n".join(out) + "\n"
-if tomllib:
-    tomllib.loads(text)
-open(dst, "w").write(text)
+open(dst, "w", encoding="utf-8", errors="surrogateescape").write(text)
 PY
 if ! CHECK="$(CALMPOMO_CONFIG_FILE="$TMP" "$ROOT/bin/calmpomo" check 2>&1)"; then
-  rm -f "$TMP"
   printf '%s\n' "${CHECK//"$TMP"/$CONF}" >&2
   exit 1
 fi

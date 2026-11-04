@@ -21,6 +21,7 @@ if [ -n "$PLUGINS" ]; then
   fi
 fi
 rm -f "$STATE_DIR"/run/tomat.*
+command -v brew >/dev/null || for b in /opt/homebrew/bin/brew /usr/local/bin/brew; do [ -x "$b" ] && eval "$("$b" shellenv)" && break; done
 for p in /opt/homebrew /usr/local "$(brew --prefix 2>/dev/null || true)"; do
   [ -n "$p" ] && [ "$(readlink "$p/bin/calmpomo" 2>/dev/null)" = "$ROOT/bin/calmpomo" ] && rm -f "$p/bin/calmpomo"
 done
