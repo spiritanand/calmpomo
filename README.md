@@ -2,7 +2,7 @@
 
 A calm pomodoro timer for the macOS menu bar, started with a hotkey.
 
-While you focus, the menu bar shows only a small dot, so there's no clock counting down at you. Click it if you want to see how long is left. Breaks show a countdown. Soft chimes mark focus, breaks, and the end of a break. When a break ends, calmpomo waits for you to start the next focus.
+While you focus, the menu bar shows only a small dot, so there's no clock counting down at you. Click it if you want to see how long is left. Breaks show a countdown. A soft rising chime marks the start of focus, and the same chime played twice marks when focus or a break is over. When a break ends, calmpomo waits for you to start the next focus.
 
 calmpomo isn't a new app. It's a short recipe that wires together free tools:
 
@@ -10,7 +10,7 @@ calmpomo isn't a new app. It's a short recipe that wires together free tools:
 - [SwiftBar](https://github.com/swiftbar/SwiftBar) draws the menu bar item (MIT)
 - a `calmpomo` command you can trigger from anything: [Raycast](https://www.raycast.com), Alfred, Hammerspoon, AeroSpace, skhd, Shortcuts, or a terminal
 
-The glue is a few shell scripts and four sounds generated in code. It replaces [pomo-cli](https://github.com/spiritanand/pomo-cli), an earlier Node.js prototype.
+The glue is a few shell scripts and one sound generated in code. It replaces [pomo-cli](https://github.com/spiritanand/pomo-cli), an earlier Node.js prototype.
 
 ## What you see
 
@@ -31,11 +31,10 @@ The icons are SF Symbols, so they match the rest of your menu bar. Click the ite
 | Moment | Sound |
 |---|---|
 | Focus starts | two soft notes, rising |
-| Break starts | two soft notes, falling |
-| Long break starts | the break sound, twice |
-| Break ends | one quiet note |
+| Focus ends (break or long break starts) | the same notes, twice in quick succession |
+| Break ends | the same notes, twice in quick succession |
 
-The sounds sit at about -26 LUFS, except the break-end note, which is kept quieter at -31 LUFS. None of them has energy in the harsh 2–5 kHz range. `scripts/gen-sounds.py` rebuilds them (needs ffmpeg); there are no audio samples to license. Mute everything with `calmpomo mute`.
+Focus start plays the chime once because you just pressed the key. The time's-up moments play it twice so you notice them away from the desk. The focus note sits at about -26 LUFS; `scripts/gen-sounds.py` rebuilds it (needs ffmpeg), so there are no audio samples to license. Mute everything with `calmpomo mute`.
 
 ## Requirements
 

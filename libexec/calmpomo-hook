@@ -11,6 +11,14 @@ mkdir -p "$STATE_DIR"
 
 play() { [ -e "$STATE_DIR/muted" ] || afplay "$ROOT/sounds/$1.wav"; }
 
+chime() {
+  [ -e "$STATE_DIR/muted" ] && return
+  afplay "$ROOT/sounds/focus_start.wav" &
+  sleep 0.6
+  afplay "$ROOT/sounds/focus_start.wav"
+  wait
+}
+
 append_log() {
   local line cutoff
   line="$(date +%Y-%m-%dT%H:%M:%S%z)	$EVENT	${TOMAT_PHASE:-}	session=${TOMAT_SESSION_COUNT:-}	remaining=${TOMAT_REMAINING_SECONDS:-}"
@@ -34,7 +42,5 @@ append_log
 
 case $EVENT in
   work_start) play focus_start ;;
-  break_start) play break_start ;;
-  long_break_start) play long_break ;;
-  break_end|long_break_end) play break_over ;;
+  break_start|long_break_start|break_end|long_break_end) chime ;;
 esac

@@ -59,8 +59,6 @@ def loudnorm(src, dst, lufs):
 
 SOUNDS = {
     "focus_start": (seq([(G4, 0, 1.3, 0.38, 0.02), (D5, 0.16, 1.24, 0.42, 0.02)], 1.4), -26),
-    "break_start": (seq([(D5, 0, 1.6, 0.5, 0.025), (G4, 0.22, 1.58, 0.6, 0.025)], 1.8), -26),
-    "break_over": (seq([(G4, 0, 1.2, 0.35, 0.03)], 1.3), -31),
 }
 
 if not shutil.which("ffmpeg"):
@@ -71,10 +69,3 @@ for name, (samples, lufs) in SOUNDS.items():
     raw = os.path.join(out, f".{name}.raw.wav")
     write(raw, samples)
     loudnorm(raw, os.path.join(out, f"{name}.wav"), lufs)
-
-with wave.open(os.path.join(out, "break_start.wav")) as w:
-    params, frames = w.getparams(), w.readframes(w.getnframes())
-gap = b"\x00\x00" * int(SR * 0.35)
-with wave.open(os.path.join(out, "long_break.wav"), "wb") as w:
-    w.setparams(params)
-    w.writeframes(frames + gap + frames)
