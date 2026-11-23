@@ -13,10 +13,9 @@ play() { [ -e "$STATE_DIR/muted" ] || afplay "$ROOT/sounds/$1.wav"; }
 
 chime() {
   [ -e "$STATE_DIR/muted" ] && return
-  for _ in 1 2 3 4; do
-    afplay /System/Library/Sounds/Tink.aiff &
-    sleep 0.4
-  done
+  afplay "$ROOT/sounds/focus_start.wav" &
+  sleep 0.6
+  afplay "$ROOT/sounds/focus_start.wav"
   wait
 }
 

@@ -2,7 +2,7 @@
 
 A calm pomodoro timer for the macOS menu bar, started with a hotkey.
 
-While you focus, the menu bar shows only a small dot, so there's no clock counting down at you. Click it if you want to see how long is left. Breaks show a countdown. A soft note marks the start of focus, and a ting rung four times marks when focus or a break is over. When a break ends, calmpomo waits for you to start the next focus.
+While you focus, the menu bar shows only a small dot, so there's no clock counting down at you. Click it if you want to see how long is left. Breaks show a countdown. A soft rising chime marks the start of focus, and the same chime played twice marks when focus or a break is over. When a break ends, calmpomo waits for you to start the next focus.
 
 calmpomo isn't a new app. It's a short recipe that wires together free tools:
 
@@ -31,10 +31,10 @@ The icons are SF Symbols, so they match the rest of your menu bar. Click the ite
 | Moment | Sound |
 |---|---|
 | Focus starts | two soft notes, rising |
-| Focus ends (break or long break starts) | macOS's Tink, four times |
-| Break ends | macOS's Tink, four times |
+| Focus ends (break or long break starts) | the same notes, twice in quick succession |
+| Break ends | the same notes, twice in quick succession |
 
-Focus start is quiet because you just pressed the key. The time's-up moments use the louder Tink so you notice them away from the desk. The focus note sits at about -26 LUFS; `scripts/gen-sounds.py` rebuilds it (needs ffmpeg), so there are no audio samples to license. Mute everything with `calmpomo mute`.
+Focus start plays the chime once because you just pressed the key. The time's-up moments play it twice so you notice them away from the desk. The focus note sits at about -26 LUFS; `scripts/gen-sounds.py` rebuilds it (needs ffmpeg), so there are no audio samples to license. Mute everything with `calmpomo mute`.
 
 ## Requirements
 
